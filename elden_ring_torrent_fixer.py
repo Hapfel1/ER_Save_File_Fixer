@@ -1,5 +1,5 @@
 """
-Elden Ring - Torrent State Fixer (GUI Version)
+Elden Ring - Torrent State Fixer
 Fixes the loading screen freeze caused by Torrent being Active with 0 HP
 """
 
@@ -9,6 +9,7 @@ import struct
 import os
 import shutil
 import hashlib
+import subprocess
 from pathlib import Path
 
 class TorrentStateFixer:
@@ -152,6 +153,39 @@ class TorrentStateFixer:
     def clear_log(self):
         """Clear the log"""
         self.log_text.delete(1.0, tk.END)
+    
+    def is_elden_ring_running(self):
+        """Check if Elden Ring is currently running using Windows tasklist"""
+        try:
+            
+            result = subprocess.run(
+                ['tasklist', '/FI', 'IMAGENAME eq eldenring.exe', '/NH'],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+            
+            # Check if eldenring.exe appears in output
+            if 'eldenring.exe' in result.stdout.lower():
+                return True
+            
+            # Also check for the launcher
+            result = subprocess.run(
+                ['tasklist', '/FI', 'IMAGENAME eq start_protected_game.exe', '/NH'],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+            
+            if 'start_protected_game.exe' in result.stdout.lower():
+                return True
+            
+            return False
+            
+        except Exception as e:
+            # If tasklist fails (non-Windows or error), return None
+            self.log(f"   [WARNING] Could not check if game is running: {str(e)}")
+            return None
     
     def browse_file(self):
         """Browse for save file"""
@@ -303,6 +337,23 @@ class TorrentStateFixer:
         if not save_path or not os.path.exists(save_path):
             messagebox.showerror("Error", "Please select a valid save file first!")
             return
+        
+        # Check if Elden Ring is running
+        game_running = self.is_elden_ring_running()
+        
+        if game_running is True:
+            messagebox.showerror(
+                "Elden Ring is Running!",
+                "Elden Ring (eldenring.exe) is currently running!\n\n"
+                "You MUST close Elden Ring before modifying the save file.\n\n"
+                "Please close the game and try again."
+            )
+            self.log("\n[ERROR] Elden Ring is running! Cannot modify save file.")
+            self.log("        Please close the game and try again.\n")
+            return
+        elif game_running is False:
+            self.log("\n[OK] Elden Ring is not running - safe to proceed")
+        
         
         # Confirm
         if not messagebox.askyesno(
