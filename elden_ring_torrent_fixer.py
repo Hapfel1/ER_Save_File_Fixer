@@ -1,6 +1,7 @@
 """
 Elden Ring - Torrent State Fixer (GUI Version)
 Fixes the loading screen freeze caused by Torrent being Active with 0 HP
+Now with proper checksum recalculation to prevent "Save data is corrupted" error
 """
 
 import tkinter as tk
@@ -8,6 +9,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import struct
 import os
 import shutil
+import hashlib
 from pathlib import Path
 
 class TorrentStateFixer:
@@ -23,6 +25,13 @@ class TorrentStateFixer:
         
         # Default save location for Elden Ring
         self.default_save_path = Path(os.environ.get('APPDATA', '')) / "EldenRing"
+        
+        self.HEADER_SIZE = 0x300
+        self.CHARACTER_FILE_SIZE = 0x280000
+        self.CHECKSUM_SIZE = 0x10
+        self.USERDATA_10_SIZE = 0x60000
+        self.MAX_CHARACTER_COUNT = 10
+        self.ACTIVE_SLOTS_OFFSET = 0x1901D04
         
         self.setup_ui()
         
@@ -151,10 +160,10 @@ class TorrentStateFixer:
             title="Select Elden Ring Save File",
             initialdir=self.default_save_path,
             filetypes=[
-                ("Elden Ring Saves", "*.sl2;*.co2"),
-                ("Standard Save", "*.sl2"),
-                ("Seamless Co-op Save", "*.co2"),
-                ("All files", "*.*")
+                ("Elden Ring Saves", ".sl2 .co2"),
+                ("Standard Save", ".sl2"),
+                ("Seamless Co-op Save", ".co2"),
+                ("All files", ".*")
             ]
         )
         if filename:
@@ -238,6 +247,56 @@ class TorrentStateFixer:
         
         listbox.bind('<Double-Button-1>', lambda e: select_save())
     
+    def recalculate_checksums(self, data):
+        """
+        Recalculate MD5 checksums for character slots and USER_DATA_10
+        Based on the 010 Editor script by ClayAmore
+        """
+        try:
+            # Count active slots
+            slots_count = 0
+            for i in range(10):
+                if data[self.ACTIVE_SLOTS_OFFSET + i] == 1:
+                    slots_count += 1
+            
+            self.log(f"   Found {slots_count} active character slot(s)")
+            
+            # Recalculate checksum for each active character slot
+            for i in range(slots_count):
+                # Calculate offset to start of character (skipping checksum bytes)
+                offset = self.HEADER_SIZE + ((self.CHARACTER_FILE_SIZE + self.CHECKSUM_SIZE) * i)
+                
+                # Read character data (skip the 16-byte checksum at the start)
+                char_data_start = offset + self.CHECKSUM_SIZE
+                char_data = data[char_data_start:char_data_start + self.CHARACTER_FILE_SIZE]
+                
+                # Calculate MD5 checksum
+                md5_hash = hashlib.md5(char_data).digest()
+                
+                # Write new checksum at the offset (before character data)
+                data[offset:offset + self.CHECKSUM_SIZE] = md5_hash
+                
+                self.log(f"   [OK] Updated checksum for character slot {i + 1}")
+            
+            # Recalculate checksum for USER_DATA_10
+            offset = self.HEADER_SIZE + (self.CHARACTER_FILE_SIZE * self.MAX_CHARACTER_COUNT)
+            userdata_start = offset + self.CHECKSUM_SIZE
+            userdata = data[userdata_start:userdata_start + self.USERDATA_10_SIZE]
+            
+            # Calculate MD5 checksum for USER_DATA_10
+            md5_hash = hashlib.md5(userdata).digest()
+            
+            # Write new checksum
+            data[offset:offset + self.CHECKSUM_SIZE] = md5_hash
+            
+            self.log(f"   [OK] Updated checksum for USER_DATA_10")
+            
+            return True
+            
+        except Exception as e:
+            self.log(f"   [ERROR] Checksum calculation failed: {str(e)}")
+            return False
+    
     def fix_save(self):
         """Main fix function"""
         save_path = self.file_path_var.get()
@@ -266,9 +325,10 @@ class TorrentStateFixer:
         try:
             # Create backup
             backup_path = save_path + ".backup"
-            self.log(f"\nCreating backup: {os.path.basename(backup_path)}")
+            self.log(f"\nCreating backup...")
+            self.log(f"Backup: {os.path.basename(backup_path)}")
             shutil.copy2(save_path, backup_path)
-            self.log("Backup created successfully")
+            self.log("[OK] Backup created successfully")
             
             # Read file
             self.log(f"\nReading save file...")
@@ -279,27 +339,27 @@ class TorrentStateFixer:
             
             # Search for pattern
             self.log("\nSearching for Torrent state issues...")
-            self.log("   Looking for: State=13 (Active) with HP=0 at offset +17")
+            self.log("   Pattern: HP=0 (4 bytes) + State=13 (4 bytes)")
             
             fixes = []
             
-            for i in range(len(data) - 21):
+            for i in range(len(data) - 8):
                 try:
-                    state = struct.unpack('<I', data[i:i+4])[0]
-                    hp = struct.unpack('<I', data[i+17:i+21])[0]
+                    hp = struct.unpack('<I', data[i:i+4])[0]
+                    state = struct.unpack('<I', data[i+4:i+8])[0]
                     
-                    if state == 13 and hp == 0:
-                        
+                    if hp == 0 and state == 13:
                         self.log(f"\n   [!] Found at offset 0x{i:08X}")
+                        self.log(f"       HP={hp}, State={state} (Active)")
                         
-                        # Change state from 13 to 3
-                        data[i] = 0x03
-                        data[i+1] = 0x00
-                        data[i+2] = 0x00
-                        data[i+3] = 0x00
+                        # Fix: Change state from 13 to 3
+                        data[i+4] = 0x03
+                        data[i+5] = 0x00
+                        data[i+6] = 0x00
+                        data[i+7] = 0x00
                         
                         fixes.append(i)
-                        self.log(f"   [OK] Changed State from Active (13) -> Dead (3)")
+                        self.log(f"   [OK] Changed State: Active (13) -> Dead (3)")
                 
                 except (struct.error, IndexError):
                     pass
@@ -310,14 +370,24 @@ class TorrentStateFixer:
                 messagebox.showinfo(
                     "No Issues Found",
                     "Your save doesn't have the Torrent state bug.\n"
-                    "A backup was still created for safety."
+                    "A backup was created for safety."
                 )
                 self.status_var.set("No issues detected")
                 self.fix_button.config(state=tk.NORMAL)
                 return
             
-            # Write changes
-            self.log(f"\nWriting {len(fixes)} fix(es) to file...")
+            self.log(f"\nFixed {len(fixes)} issue(s)")
+            
+            # Recalculate checksums
+            self.log("\n" + "="*70)
+            self.log("RECALCULATING CHECKSUMS")
+            self.log("="*70)
+            
+            if not self.recalculate_checksums(data):
+                raise Exception("Checksum recalculation failed")
+            
+            # Write changes with updated checksums
+            self.log(f"\nWriting fixed save file...")
             with open(save_path, 'wb') as f:
                 bytes_written = f.write(data)
                 f.flush()
@@ -326,39 +396,44 @@ class TorrentStateFixer:
             self.log(f"Wrote {bytes_written:,} bytes")
             
             # Verify
-            self.log("\nVerifying changes...")
+            self.log("\n" + "="*70)
+            self.log("VERIFYING CHANGES")
+            self.log("="*70)
+            
             with open(save_path, 'rb') as f:
                 verify_data = bytearray(f.read())
             
             all_verified = True
             for offset in fixes:
-                state = struct.unpack('<I', verify_data[offset:offset+4])[0]
-                hp = struct.unpack('<I', verify_data[offset+17:offset+21])[0]
+                hp = struct.unpack('<I', verify_data[offset:offset+4])[0]
+                state = struct.unpack('<I', verify_data[offset+4:offset+8])[0]
                 
                 if state == 3:
-                    self.log(f"   [OK] Offset 0x{offset:08X}: State=Dead (3), HP={hp}")
+                    self.log(f"   [OK] Offset 0x{offset:08X}: HP={hp}, State=Dead (3)")
                 else:
-                    self.log(f"   [FAIL] Offset 0x{offset:08X}: FAILED (State={state})")
+                    self.log(f"   [FAIL] Offset 0x{offset:08X}: State={state} (should be 3)")
                     all_verified = False
             
-            # Final result
+            
             self.log("\n" + "="*70)
             if all_verified:
                 self.log("SUCCESS! All fixes verified!")
-                self.log(f"Fixed {len(fixes)} instance(s)")
+                self.log(f"Fixed {len(fixes)} issue(s)")
+                self.log(f"Checksums recalculated successfully")
                 self.log(f"Backup: {os.path.basename(backup_path)}")
                 self.log("="*70)
                 
                 messagebox.showinfo(
                     "Success!",
                     f"Torrent state fixed successfully!\n\n"
-                    f"Fixed {len(fixes)} instance(s)\n"
-                    f"Backup created: {os.path.basename(backup_path)}\n\n"
+                    f"Fixed {len(fixes)} issue(s)\n"
+                    f"Checksums updated\n\n"
+                    f"Backup saved:\n{os.path.basename(backup_path)}\n\n"
                     f"You can now load your save in Elden Ring!"
                 )
-                self.status_var.set(f"Fixed {len(fixes)} instance(s)")
+                self.status_var.set(f"Fixed {len(fixes)} issue(s)")
             else:
-                self.log("WARNING: PARTIAL SUCCESS - Some verifications failed")
+                self.log("WARNING: Some verifications failed")
                 self.log("="*70)
                 messagebox.showwarning(
                     "Partial Success",
