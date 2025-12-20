@@ -418,6 +418,134 @@ class SaveFileFixer:
             style='Accent.TButton'
         ).pack(side=tk.LEFT, padx=5)
 
+    def select_teleport_location(self, character_name, has_issues, horse, map_id, corruption_issues):
+        """Show dialog to select teleport location"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Teleport Location")
+        dialog.geometry("500x400")
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"500x400+{x}+{y}")
+        
+        # Title
+        title_frame = ttk.Frame(dialog, padding="15")
+        title_frame.pack(fill=tk.X)
+        
+        ttk.Label(
+            title_frame,
+            text=f"Fix Character: {character_name}",
+            font=('Segoe UI', 12, 'bold')
+        ).pack()
+        
+        # Issues detected
+        if has_issues:
+            issues_frame = ttk.LabelFrame(dialog, text="Issues Detected", padding="10")
+            issues_frame.pack(fill=tk.X, padx=15, pady=10)
+            
+            issues_list = []
+            if horse and horse.has_bug():
+                issues_list.append("Torrent infinite loading bug")
+            if map_id and map_id.is_dlc():
+                issues_list.append("DLC location (requires teleport)")
+            if corruption_issues:
+                issues_list.append(f"Save corruption ({len(corruption_issues)} issues)")
+            
+            for issue in issues_list:
+                ttk.Label(
+                    issues_frame,
+                    text=f"  {issue}",
+                    font=('Segoe UI', 9)
+                ).pack(anchor=tk.W)
+        else:
+            info_frame = ttk.Frame(dialog, padding="10")
+            info_frame.pack(fill=tk.X, padx=15, pady=10)
+            
+            ttk.Label(
+                info_frame,
+                text="No issues detected. Teleport can still fix potential\ninfinite loading screens.",
+                font=('Segoe UI', 9),
+                justify=tk.LEFT
+            ).pack(anchor=tk.W)
+        
+        # Location selection
+        location_frame = ttk.LabelFrame(dialog, text="Select Teleport Destination", padding="15")
+        location_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=10)
+        
+        selected_location = tk.StringVar(value="limgrave")
+        
+        # Limgrave option
+        limgrave_frame = ttk.Frame(location_frame)
+        limgrave_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Radiobutton(
+            limgrave_frame,
+            text="Limgrave",
+            variable=selected_location,
+            value="limgrave"
+        ).pack(anchor=tk.W)
+        
+        ttk.Label(
+            limgrave_frame,
+            text="  Map ID: 60 42 36 00",
+            font=('Segoe UI', 8),
+            foreground='#666666'
+        ).pack(anchor=tk.W, padx=20)
+        
+        # Roundtable Hold option
+        roundtable_frame = ttk.Frame(location_frame)
+        roundtable_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Radiobutton(
+            roundtable_frame,
+            text="Roundtable Hold",
+            variable=selected_location,
+            value="roundtable"
+        ).pack(anchor=tk.W)
+        
+        ttk.Label(
+            roundtable_frame,
+            text="  Map ID: 11 10 00 00",
+            font=('Segoe UI', 8),
+            foreground='#666666'
+        ).pack(anchor=tk.W, padx=20)
+        
+        # Result variable
+        result = [None]
+        
+        def confirm():
+            result[0] = selected_location.get()
+            dialog.destroy()
+        
+        def cancel():
+            dialog.destroy()
+        
+        # Buttons
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        
+        ttk.Button(
+            button_frame,
+            text="Confirm & Fix",
+            command=confirm,
+            width=15,
+            style='Accent.TButton'
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text="Cancel",
+            command=cancel,
+            width=15
+        ).pack(side=tk.RIGHT, padx=5)
+        
+        dialog.wait_window()
+        return result[0]
+
     def fix_character(self):
         if self.selected_character is None:
             messagebox.showerror("Error", "Please select a character first!")
@@ -428,28 +556,42 @@ class SaveFileFixer:
         name = slot.get_character_name() or f"Character {slot_idx + 1}"
         
         # Check what issues exist
-        has_any_issues = False
-        
         horse = slot.get_horse_data()
-        if horse and horse.has_bug():
-            has_any_issues = True
+        has_torrent_bug = horse and horse.has_bug()
         
         map_id = slot.get_slot_map_id()
-        if map_id and map_id.is_dlc():
-            has_any_issues = True
+        has_dlc_location = map_id and map_id.is_dlc()
         
         # Check corruption
         has_corruption, corruption_issues = slot.has_corruption()
-        if has_corruption:
-            has_any_issues = True
         
-        # Confirmation dialog
-        if has_any_issues:
+        # Determine if teleport selection is needed
+        # Only show teleport dialog if:
+        # 1. No issues at all (user wants preventive teleport)
+        # 2. DLC location issue (requires teleport)
+        needs_teleport_selection = (not has_torrent_bug and not has_corruption) or has_dlc_location
+        
+        teleport_location = None
+        
+        if needs_teleport_selection:
+            # Show teleport location selection dialog
+            # Temporarily remove topmost to show selection dialog in front
+            if self.detail_popup:
+                self.detail_popup.attributes('-topmost', False)
+            
+            teleport_location = self.select_teleport_location(name, has_dlc_location, horse, map_id, corruption_issues)
+            
+            # Restore topmost
+            if self.detail_popup:
+                self.detail_popup.attributes('-topmost', True)
+            
+            if teleport_location is None:
+                return
+        else:
+            # For Torrent bug and/or corruption, show simple confirmation
             issues_list = []
-            if horse and horse.has_bug():
+            if has_torrent_bug:
                 issues_list.append("Torrent bug")
-            if map_id and map_id.is_dlc():
-                issues_list.append("DLC teleport")
             if has_corruption:
                 issues_list.append(f"Corruption ({len(corruption_issues)} issues)")
             
@@ -457,33 +599,22 @@ class SaveFileFixer:
                 f"Fix character: {name}\n\n"
                 f"Will fix detected issues:\n" +
                 "\n".join(f"  - {issue}" for issue in issues_list) + "\n\n"
-                f"A backup will be created.\n"
-                f"Is Elden Ring closed?\n\n"
+                f"A backup will be created.\n\n"
                 f"Continue?"
             )
-        else:
-            confirm_msg = (
-                f"Teleport character: {name}\n\n"
-                f"No issues detected.\n"
-                f"Will teleport to Limgrave\n"
-                f"to fix potential infinite loading screens.\n\n"
-                f"A backup will be created.\n"
-                f"Is Elden Ring closed?\n\n"
-                f"Continue?"
-            )
-        
-        # Temporarily remove topmost to show confirmation dialog in front
-        if self.detail_popup:
-            self.detail_popup.attributes('-topmost', False)
-        
-        result = messagebox.askyesno("Confirm Fix", confirm_msg, parent=self.detail_popup)
-        
-        # Restore topmost
-        if self.detail_popup:
-            self.detail_popup.attributes('-topmost', True)
-        
-        if not result:
-            return
+            
+            # Temporarily remove topmost to show confirmation dialog in front
+            if self.detail_popup:
+                self.detail_popup.attributes('-topmost', False)
+            
+            result = messagebox.askyesno("Confirm Fix", confirm_msg, parent=self.detail_popup)
+            
+            # Restore topmost
+            if self.detail_popup:
+                self.detail_popup.attributes('-topmost', True)
+            
+            if not result:
+                return
         
         try:
             save_path = self.file_path_var.get()
@@ -499,7 +630,7 @@ class SaveFileFixer:
             fixed_issues = []
             
             # Fix 1: Torrent Bug
-            if horse and horse.has_bug():
+            if has_torrent_bug:
                 self.status_var.set("Fixing Torrent bug...")
                 self.root.update()
                 horse.fix_bug()
@@ -515,22 +646,30 @@ class SaveFileFixer:
                     for fix in corruption_fixes:
                         fixed_issues.append(f"Corruption: {fix}")
             
-            # Fix 3: DLC Location or Always Teleport
-            has_dlc_location = map_id and map_id.is_dlc()
-            
-            # Always teleport if no other fixes, or if DLC location
-            if has_dlc_location or not fixed_issues:
-                self.status_var.set("Teleporting to Limgrave...")
+            # Fix 3: Teleport (only if user selected a location)
+            if teleport_location is not None:
+                location_name = ""
+                
+                # Set MapID based on selected location
+                # Note: MapID bytes are stored reversed in file
+                # Display format "AA BB CC DD" = file bytes [DD, CC, BB, AA]
+                if teleport_location == "limgrave":
+                    new_map = MapID(bytes([0, 36, 42, 60]))  # File: 00 24 2A 3C -> Display: 60 42 36 00
+                    location_name = "Limgrave"
+                else:  # roundtable
+                    new_map = MapID(bytes([0, 0, 10, 11]))  # File: 00 00 0A 0B -> Display: 11 10 00 00
+                    location_name = "Roundtable Hold"
+                
+                self.status_var.set(f"Teleporting to {location_name}...")
                 self.root.update()
                 
-                new_map = MapID(bytes([0, 36, 42, 60]))
                 map_offset = slot.data_start + 0x4
                 self.save_file.data[map_offset:map_offset+4] = new_map.to_bytes()
                 
                 if has_dlc_location:
-                    fixed_issues.append("DLC location")
+                    fixed_issues.append(f"DLC location -> {location_name}")
                 else:
-                    fixed_issues.append("Teleported to Limgrave")
+                    fixed_issues.append(f"Teleported to {location_name}")
             
             # Recalculate checksums
             self.status_var.set("Recalculating checksums...")
