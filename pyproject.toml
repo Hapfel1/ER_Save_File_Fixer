@@ -1,0 +1,56 @@
+[project]
+name = "er-save-fixer"
+version = "3.2.0"
+description = "Fixes Elden Ring corrupted saves and infinite loading issues"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+authors = [{ name = "Hapfel1" }]
+dependencies = []
+
+[project.scripts]
+er-save-fixer = "er_save_fixer.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.8.8,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+  "pyinstaller>=6.15.0 ; sys_platform == 'win32'",
+  "ruff>=0.12.12",
+]
+
+[tool.uv]
+# Don't install dev dependencies on 'uv run'
+default-groups = []
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+  "E4",
+  "E7",
+  "E9",
+  "F",
+  "I",   # isort
+  "B",   # flake8-bugbear
+  "LOG", # flake8-logging
+  "G",   # flake8-logging-format
+  "PIE", # flake8-pie
+  "T20", # flake8-print
+  "UP",  # pyupgrade
+]
+ignore = [
+  # Allow `pass` (more obvious that it's a placeholder)
+  "PIE790",
+  # Allow redundant mode="r" arg for open()
+  "UP015",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ok to use print() in CLI
+"src/er_save_fixer/cli.py" = ["T20"]
+
+
