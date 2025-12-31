@@ -12,7 +12,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from er_save_fixer.parser import EldenRingSaveFile, MapID
+from .parser import MapId, Save
 
 
 class SaveFileFixer:
@@ -264,7 +264,7 @@ class SaveFileFixer:
             self.status_var.set("Loading save file...")
             self.root.update()
 
-            self.save_file = EldenRingSaveFile(save_path)
+            self.save_file = Save.from_file(save_path)
 
             # Clear listbox
             self.char_listbox.delete(0, tk.END)
@@ -380,9 +380,6 @@ class SaveFileFixer:
         if horse:
             info += f"\nTorrent HP: {horse.hp}\n"
             info += f"Torrent State: {horse.state.name if horse.state.value != 0 else 'DEAD'}\n"
-
-            if horse.has_bug():
-                issues_detected.append("Torrent stuck loading bug")
         else:
             info += "\nCould not find Torrent data\n"
 
@@ -394,7 +391,33 @@ class SaveFileFixer:
         has_corruption, corruption_issues = slot.has_corruption()
         if has_corruption:
             for issue in corruption_issues:
-                issues_detected.append(f"Corruption: {issue}")
+                # User-friendly issue messages
+                # Parse issue format: "type:details"
+                if ":" in issue:
+                    issue_type, details = issue.split(":", 1)
+                else:
+                    issue_type, details = issue, ""
+
+                # Remove "_sync" suffix if present
+                if issue_type.endswith(("_sync", "_corruption")):
+                    # Get the base type
+                    base_type = issue_type.replace("_sync", "").replace(
+                        "_corruption", ""
+                    )
+                else:
+                    base_type = issue_type
+
+                # Format messages with values - use friendly names
+                if base_type == "torrent_bug" or base_type == "torrent":
+                    issues_detected.append(f"Corruption: Torrent - {details}")
+                elif base_type == "weather":
+                    issues_detected.append(f"Corruption: Weather - {details}")
+                elif base_type == "time":
+                    issues_detected.append(f"Corruption: Time - {details}")
+                elif base_type == "steamid":
+                    issues_detected.append(f"Corruption: SteamId - {details}")
+                else:
+                    issues_detected.append(f"Corruption: {issue}")
 
         # Display issues or status
         if issues_detected:
@@ -700,14 +723,6 @@ class SaveFileFixer:
 
             fixed_issues = []
 
-            # Fix 1: Torrent Bug
-            if has_torrent_bug:
-                self.status_var.set("Fixing Torrent bug...")
-                self.root.update()
-                horse.fix_bug()
-                slot.write_horse_data(horse)
-                fixed_issues.append("Torrent bug")
-
             # Fix 2: Corruption (SteamId, WorldAreaTime, WorldAreaWeather)
             if has_corruption:
                 self.status_var.set("Fixing corruption...")
@@ -727,10 +742,10 @@ class SaveFileFixer:
                 # Note: MapID bytes are stored reversed in file
                 # Display format "AA BB CC DD" = file bytes [DD, CC, BB, AA]
                 if teleport_location == "limgrave":
-                    new_map = MapID(bytes([0, 36, 42, 60]))  # Display: 60 42 36 00
+                    new_map = MapId(bytes([0, 36, 42, 60]))  # Display: 60 42 36 00
                     location_name = "Limgrave"
                 else:  # roundtable
-                    new_map = MapID(bytes([0, 0, 10, 11]))  # Display: 11 10 00 00
+                    new_map = MapId(bytes([0, 0, 10, 11]))  # Display: 11 10 00 00
                     location_name = "Roundtable Hold"
 
                 self.status_var.set(f"Teleporting to {location_name}...")
