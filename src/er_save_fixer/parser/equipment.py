@@ -3,6 +3,8 @@ Elden Ring Save Parser - Equipment and Inventory Structures
 
 Contains all equipment, inventory, and item-related structures.
 Based on ER-Save-Lib Rust implementation.
+
+Refactored to use base class for equipment slots to reduce code duplication.
 """
 
 from __future__ import annotations
@@ -12,13 +14,24 @@ from dataclasses import dataclass, field
 from io import BytesIO
 
 # ============================================================================
-# EQUIPMENT INDEXES
+# BASE CLASS FOR EQUIPMENT SLOTS
 # ============================================================================
 
 
 @dataclass
-class EquippedItemsEquipIndex:
-    """Equipment slot indexes (0x58 = 88 bytes)"""
+class EquipmentSlots:
+    """
+    Base class for equipment slot structures (88 bytes).
+
+    Contains 22 fields representing:
+    - 6 weapon slots (left/right hand 1/2/3)
+    - 4 ammo slots (arrows/bolts 1/2)
+    - 4 armor slots (head/chest/arms/legs)
+    - 4 talisman slots
+    - 4 unknown fields
+
+    Used by: EquippedItemsEquipIndex, EquippedItemsItemIds, EquippedItemsGaitemHandles
+    """
 
     left_hand_armament1: int = 0
     right_hand_armament1: int = 0
@@ -44,8 +57,8 @@ class EquippedItemsEquipIndex:
     unk0x54: int = 0
 
     @classmethod
-    def read(cls, f: BytesIO) -> EquippedItemsEquipIndex:
-        """Read EquippedItemsEquipIndex from stream (88 bytes)"""
+    def read(cls, f: BytesIO):
+        """Read equipment slots from stream (88 bytes)"""
         return cls(
             left_hand_armament1=struct.unpack("<I", f.read(4))[0],
             right_hand_armament1=struct.unpack("<I", f.read(4))[0],
@@ -72,7 +85,7 @@ class EquippedItemsEquipIndex:
         )
 
     def write(self, f: BytesIO):
-        """Write EquippedItemsEquipIndex to stream (88 bytes)"""
+        """Write equipment slots to stream (88 bytes)"""
         f.write(struct.pack("<I", self.left_hand_armament1))
         f.write(struct.pack("<I", self.right_hand_armament1))
         f.write(struct.pack("<I", self.left_hand_armament2))
@@ -95,6 +108,23 @@ class EquippedItemsEquipIndex:
         f.write(struct.pack("<I", self.talisman3))
         f.write(struct.pack("<I", self.talisman4))
         f.write(struct.pack("<I", self.unk0x54))
+
+
+# ============================================================================
+# EQUIPMENT INDEXES
+# ============================================================================
+
+
+@dataclass
+class EquippedItemsEquipIndex(EquipmentSlots):
+    """
+    Equipment slot indexes (88 bytes).
+
+    Indexes into inventory arrays for currently equipped items.
+    Inherits all 22 fields from EquipmentSlots.
+    """
+
+    pass
 
 
 @dataclass
@@ -134,170 +164,27 @@ class ActiveWeaponSlotsAndArmStyle:
 
 
 @dataclass
-class EquippedItemsItemIds:
-    """Equipment item IDs (0x58 = 88 bytes)"""
+class EquippedItemsItemIds(EquipmentSlots):
+    """
+    Equipment item IDs (88 bytes).
 
-    left_hand_armament1: int = 0
-    right_hand_armament1: int = 0
-    left_hand_armament2: int = 0
-    right_hand_armament2: int = 0
-    left_hand_armament3: int = 0
-    right_hand_armament3: int = 0
-    arrows1: int = 0
-    bolts1: int = 0
-    arrows2: int = 0
-    bolts2: int = 0
-    unk0x28: int = 0
-    unk0x2c: int = 0
-    head: int = 0
-    chest: int = 0
-    arms: int = 0
-    legs: int = 0
-    unk0x40: int = 0
-    talisman1: int = 0
-    talisman2: int = 0
-    talisman3: int = 0
-    talisman4: int = 0
-    unk0x54: int = 0
+    Item IDs of currently equipped items.
+    Inherits all 22 fields from EquipmentSlots.
+    """
 
-    @classmethod
-    def read(cls, f: BytesIO) -> EquippedItemsItemIds:
-        """Read EquippedItemsItemIds from stream (88 bytes)"""
-        return cls(
-            left_hand_armament1=struct.unpack("<I", f.read(4))[0],
-            right_hand_armament1=struct.unpack("<I", f.read(4))[0],
-            left_hand_armament2=struct.unpack("<I", f.read(4))[0],
-            right_hand_armament2=struct.unpack("<I", f.read(4))[0],
-            left_hand_armament3=struct.unpack("<I", f.read(4))[0],
-            right_hand_armament3=struct.unpack("<I", f.read(4))[0],
-            arrows1=struct.unpack("<I", f.read(4))[0],
-            bolts1=struct.unpack("<I", f.read(4))[0],
-            arrows2=struct.unpack("<I", f.read(4))[0],
-            bolts2=struct.unpack("<I", f.read(4))[0],
-            unk0x28=struct.unpack("<I", f.read(4))[0],
-            unk0x2c=struct.unpack("<I", f.read(4))[0],
-            head=struct.unpack("<I", f.read(4))[0],
-            chest=struct.unpack("<I", f.read(4))[0],
-            arms=struct.unpack("<I", f.read(4))[0],
-            legs=struct.unpack("<I", f.read(4))[0],
-            unk0x40=struct.unpack("<I", f.read(4))[0],
-            talisman1=struct.unpack("<I", f.read(4))[0],
-            talisman2=struct.unpack("<I", f.read(4))[0],
-            talisman3=struct.unpack("<I", f.read(4))[0],
-            talisman4=struct.unpack("<I", f.read(4))[0],
-            unk0x54=struct.unpack("<I", f.read(4))[0],
-        )
-
-    def write(self, f: BytesIO):
-        """Write EquippedItemsItemIds to stream (88 bytes)"""
-        f.write(struct.pack("<I", self.left_hand_armament1))
-        f.write(struct.pack("<I", self.right_hand_armament1))
-        f.write(struct.pack("<I", self.left_hand_armament2))
-        f.write(struct.pack("<I", self.right_hand_armament2))
-        f.write(struct.pack("<I", self.left_hand_armament3))
-        f.write(struct.pack("<I", self.right_hand_armament3))
-        f.write(struct.pack("<I", self.arrows1))
-        f.write(struct.pack("<I", self.bolts1))
-        f.write(struct.pack("<I", self.arrows2))
-        f.write(struct.pack("<I", self.bolts2))
-        f.write(struct.pack("<I", self.unk0x28))
-        f.write(struct.pack("<I", self.unk0x2c))
-        f.write(struct.pack("<I", self.head))
-        f.write(struct.pack("<I", self.chest))
-        f.write(struct.pack("<I", self.arms))
-        f.write(struct.pack("<I", self.legs))
-        f.write(struct.pack("<I", self.unk0x40))
-        f.write(struct.pack("<I", self.talisman1))
-        f.write(struct.pack("<I", self.talisman2))
-        f.write(struct.pack("<I", self.talisman3))
-        f.write(struct.pack("<I", self.talisman4))
-        f.write(struct.pack("<I", self.unk0x54))
+    pass
 
 
 @dataclass
-class EquippedItemsGaitemHandles:
-    """Equipment gaitem handles (0x58 = 88 bytes)"""
+class EquippedItemsGaitemHandles(EquipmentSlots):
+    """
+    Equipment Gaitem handles (88 bytes).
 
-    left_hand_armament1: int = 0
-    right_hand_armament1: int = 0
-    left_hand_armament2: int = 0
-    right_hand_armament2: int = 0
-    left_hand_armament3: int = 0
-    right_hand_armament3: int = 0
-    arrows1: int = 0
-    bolts1: int = 0
-    arrows2: int = 0
-    bolts2: int = 0
-    unk0x28: int = 0
-    unk0x2c: int = 0
-    head: int = 0
-    chest: int = 0
-    arms: int = 0
-    legs: int = 0
-    unk0x40: int = 0
-    talisman1: int = 0
-    talisman2: int = 0
-    talisman3: int = 0
-    talisman4: int = 0
-    unk0x54: int = 0
+    Gaitem handles for currently equipped items.
+    Inherits all 22 fields from EquipmentSlots.
+    """
 
-    @classmethod
-    def read(cls, f: BytesIO) -> EquippedItemsGaitemHandles:
-        """Read EquippedItemsGaitemHandles from stream (88 bytes)"""
-        return cls(
-            left_hand_armament1=struct.unpack("<I", f.read(4))[0],
-            right_hand_armament1=struct.unpack("<I", f.read(4))[0],
-            left_hand_armament2=struct.unpack("<I", f.read(4))[0],
-            right_hand_armament2=struct.unpack("<I", f.read(4))[0],
-            left_hand_armament3=struct.unpack("<I", f.read(4))[0],
-            right_hand_armament3=struct.unpack("<I", f.read(4))[0],
-            arrows1=struct.unpack("<I", f.read(4))[0],
-            bolts1=struct.unpack("<I", f.read(4))[0],
-            arrows2=struct.unpack("<I", f.read(4))[0],
-            bolts2=struct.unpack("<I", f.read(4))[0],
-            unk0x28=struct.unpack("<I", f.read(4))[0],
-            unk0x2c=struct.unpack("<I", f.read(4))[0],
-            head=struct.unpack("<I", f.read(4))[0],
-            chest=struct.unpack("<I", f.read(4))[0],
-            arms=struct.unpack("<I", f.read(4))[0],
-            legs=struct.unpack("<I", f.read(4))[0],
-            unk0x40=struct.unpack("<I", f.read(4))[0],
-            talisman1=struct.unpack("<I", f.read(4))[0],
-            talisman2=struct.unpack("<I", f.read(4))[0],
-            talisman3=struct.unpack("<I", f.read(4))[0],
-            talisman4=struct.unpack("<I", f.read(4))[0],
-            unk0x54=struct.unpack("<I", f.read(4))[0],
-        )
-
-    def write(self, f: BytesIO):
-        """Write EquippedItemsGaitemHandles to stream (88 bytes)"""
-        f.write(struct.pack("<I", self.left_hand_armament1))
-        f.write(struct.pack("<I", self.right_hand_armament1))
-        f.write(struct.pack("<I", self.left_hand_armament2))
-        f.write(struct.pack("<I", self.right_hand_armament2))
-        f.write(struct.pack("<I", self.left_hand_armament3))
-        f.write(struct.pack("<I", self.right_hand_armament3))
-        f.write(struct.pack("<I", self.arrows1))
-        f.write(struct.pack("<I", self.bolts1))
-        f.write(struct.pack("<I", self.arrows2))
-        f.write(struct.pack("<I", self.bolts2))
-        f.write(struct.pack("<I", self.unk0x28))
-        f.write(struct.pack("<I", self.unk0x2c))
-        f.write(struct.pack("<I", self.head))
-        f.write(struct.pack("<I", self.chest))
-        f.write(struct.pack("<I", self.arms))
-        f.write(struct.pack("<I", self.legs))
-        f.write(struct.pack("<I", self.unk0x40))
-        f.write(struct.pack("<I", self.talisman1))
-        f.write(struct.pack("<I", self.talisman2))
-        f.write(struct.pack("<I", self.talisman3))
-        f.write(struct.pack("<I", self.talisman4))
-        f.write(struct.pack("<I", self.unk0x54))
-
-
-# ============================================================================
-# INVENTORY
-# ============================================================================
+    pass
 
 
 @dataclass
