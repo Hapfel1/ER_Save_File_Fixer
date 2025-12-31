@@ -12,7 +12,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from .parser import Save, load_save, MapId, HorseState
+from .parser import MapId, Save
 
 
 class SaveFileFixer:
@@ -264,7 +264,7 @@ class SaveFileFixer:
             self.status_var.set("Loading save file...")
             self.root.update()
 
-            self.save_file = EldenRingSaveFile(save_path)
+            self.save_file = Save(save_path)
 
             # Clear listbox
             self.char_listbox.delete(0, tk.END)
@@ -727,10 +727,10 @@ class SaveFileFixer:
                 # Note: MapID bytes are stored reversed in file
                 # Display format "AA BB CC DD" = file bytes [DD, CC, BB, AA]
                 if teleport_location == "limgrave":
-                    new_map = MapID(bytes([0, 36, 42, 60]))  # Display: 60 42 36 00
+                    new_map = MapId(bytes([0, 36, 42, 60]))  # Display: 60 42 36 00
                     location_name = "Limgrave"
                 else:  # roundtable
-                    new_map = MapID(bytes([0, 0, 10, 11]))  # Display: 11 10 00 00
+                    new_map = MapId(bytes([0, 0, 10, 11]))  # Display: 11 10 00 00
                     location_name = "Roundtable Hold"
 
                 self.status_var.set(f"Teleporting to {location_name}...")

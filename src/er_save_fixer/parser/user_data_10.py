@@ -8,21 +8,22 @@ Contains global save data including:
 """
 
 from __future__ import annotations
+
+import struct
 from dataclasses import dataclass, field
 from io import BytesIO
-import struct
-from typing import List
 
 
 def read_wstring(f: BytesIO, max_chars: int) -> str:
     """Read a wide string (UTF-16LE) of max_chars characters"""
     data = f.read(max_chars * 2)
-    return data.decode('utf-16le').rstrip('\x00')
+    return data.decode("utf-16le").rstrip("\x00")
 
 
 @dataclass
 class Settings:
     """Game settings"""
+
     camera_speed: int = 0
     controller_vibration: int = 0
     brightness: int = 0
@@ -61,7 +62,7 @@ class Settings:
     show_recent_tabs: int = 0
     unk0x24: int = 0
     unk0x2c: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> Settings:
         """Read Settings from stream"""
@@ -110,8 +111,9 @@ class Settings:
 @dataclass
 class ProfileEquipment:
     """Equipment info in profile summary"""
-    raw_data: bytes = b''
-    
+
+    raw_data: bytes = b""
+
     @classmethod
     def read(cls, f: BytesIO) -> ProfileEquipment:
         """Read ProfileEquipment - 0xE8 bytes"""
@@ -123,78 +125,83 @@ class ProfileEquipment:
 @dataclass
 class Profile:
     """Profile data for a single character slot in ProfileSummary"""
+
     character_name: str = ""
     level: int = 0
     seconds_played: int = 0
     runes_memory: int = 0
-    map_id: bytes = b''
+    map_id: bytes = b""
     unk0x34: int = 0
-    face_data: bytes = b''
+    face_data: bytes = b""
     equipment: ProfileEquipment = None
     gender: int = 0
     archetype: int = 0
     starting_gift: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> Profile:
         """Read Profile from stream - 0x24C bytes total"""
         obj = cls()
-        
+
         # Character name (16 wide chars)
         obj.character_name = read_wstring(f, 16)
-        
+
         # Terminator (2 bytes)
         f.read(2)
-        
+
         # Stats
         obj.level = struct.unpack("<I", f.read(4))[0]
         obj.seconds_played = struct.unpack("<I", f.read(4))[0]
         obj.runes_memory = struct.unpack("<I", f.read(4))[0]
         obj.map_id = f.read(4)
         obj.unk0x34 = struct.unpack("<I", f.read(4))[0]
-        
+
         # Face data (0x124 bytes)
         obj.face_data = f.read(0x124)
-        
+
         # Equipment (0xE8 bytes)
         obj.equipment = ProfileEquipment.read(f)
-        
+
         # Character creation data
         obj.gender = struct.unpack("<B", f.read(1))[0]
         obj.archetype = struct.unpack("<B", f.read(1))[0]
         obj.starting_gift = struct.unpack("<B", f.read(1))[0]
-        
+
         # Unknown fields (3 bytes + 4 bytes = 7 bytes total)
         f.read(7)
-        
+
         return obj
 
 
 @dataclass
 class ProfileSummary:
     """Profile summary containing basic info for all 10 character slots"""
-    active_profiles: List[bool] = field(default_factory=list)
-    profiles: List[Profile] = field(default_factory=list)
-    
+
+    active_profiles: list[bool] = field(default_factory=list)
+    profiles: list[Profile] = field(default_factory=list)
+
     @classmethod
     def read(cls, f: BytesIO) -> ProfileSummary:
         """Read ProfileSummary from stream"""
         obj = cls()
-        
+
         # Active profiles (10 bytes)
-        obj.active_profiles = [bool(struct.unpack("<B", f.read(1))[0]) for _ in range(10)]
-        
+        obj.active_profiles = [
+            bool(struct.unpack("<B", f.read(1))[0]) for _ in range(10)
+        ]
+
         # 10 profiles
         obj.profiles = [Profile.read(f) for _ in range(10)]
-        
+
         return obj
 
 
 @dataclass
 class MenuSystemSaveLoad:
     """Menu system data - just read as raw for now"""
-    raw_data: bytes = b''
-    
+
+    raw_data: bytes = b""
+
     @classmethod
     def read(cls, f: BytesIO) -> MenuSystemSaveLoad:
         """Read MenuSystemSaveLoad - 0x1808 bytes"""
@@ -206,8 +213,9 @@ class MenuSystemSaveLoad:
 @dataclass
 class PCOptionData:
     """PC-specific options - just read as raw"""
-    raw_data: bytes = b''
-    
+
+    raw_data: bytes = b""
+
     @classmethod
     def read(cls, f: BytesIO) -> PCOptionData:
         """Read PCOptionData - 0xB2 bytes"""
@@ -219,9 +227,10 @@ class PCOptionData:
 @dataclass
 class KeyConfigSaveLoad:
     """Key configuration data"""
+
     size: int = 0
-    data: bytes = b''
-    
+    data: bytes = b""
+
     @classmethod
     def read(cls, f: BytesIO) -> KeyConfigSaveLoad:
         """Read KeyConfigSaveLoad"""
@@ -236,13 +245,14 @@ class KeyConfigSaveLoad:
 class UserData10:
     """
     USER_DATA_10 - Common section with global save data
-    
+
     Contains:
     - Version
     - SteamID
     - Settings
     - Profile Summary (with seconds_played for each character)
     """
+
     version: int = 0
     steam_id: int = 0
     settings: Settings = None
@@ -250,29 +260,29 @@ class UserData10:
     profile_summary: ProfileSummary = None
     pc_option_data: PCOptionData = None
     key_config_save_load: KeyConfigSaveLoad = None
-    
+
     @classmethod
     def read(cls, f: BytesIO, is_ps: bool) -> UserData10:
         """
         Read USER_DATA_10 from stream
-        
+
         Args:
             f: BytesIO stream positioned at start of USER_DATA_10
             is_ps: True if PlayStation save
         """
         obj = cls()
         start_pos = f.tell()
-        
+
         # Skip checksum on PC
         if not is_ps:
             f.read(16)
-        
+
         # Version (4 bytes)
         obj.version = struct.unpack("<I", f.read(4))[0]
-        
+
         # SteamID (8 bytes)
         obj.steam_id = struct.unpack("<Q", f.read(8))[0]
-        
+
         # Settings (0x140 bytes based on CSV)
         # Actually Settings is smaller but includes padding
         obj.settings = Settings.read(f)
@@ -282,30 +292,30 @@ class UserData10:
         padding = settings_expected_end - settings_end
         if padding > 0:
             f.read(padding)
-        
+
         # MenuSystemSaveLoad (0x1808 bytes)
         obj.menu_system_save_load = MenuSystemSaveLoad.read(f)
-        
+
         # ProfileSummary (0x1702 bytes)
         obj.profile_summary = ProfileSummary.read(f)
-        
+
         # gamedataman fields (5 bytes)
         f.read(5)
-        
+
         # PCOptionData (PC only, 0xB2 bytes)
         if not is_ps:
             obj.pc_option_data = PCOptionData.read(f)
-        
+
         # KeyConfigSaveLoad (variable size)
         obj.key_config_save_load = KeyConfigSaveLoad.read(f)
-        
+
         # game_man_0x118 (8 bytes)
         f.read(8)
-        
+
         # Skip rest
         bytes_read = f.tell() - start_pos
         remaining = 0x60000 - bytes_read
         if remaining > 0:
             f.read(remaining)
-        
+
         return obj

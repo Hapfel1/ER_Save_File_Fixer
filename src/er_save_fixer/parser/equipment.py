@@ -6,19 +6,20 @@ Based on ER-Save-Lib Rust implementation.
 """
 
 from __future__ import annotations
+
+import struct
 from dataclasses import dataclass, field
 from io import BytesIO
-import struct
-from typing import List
-
 
 # ============================================================================
 # EQUIPMENT INDEXES
 # ============================================================================
 
+
 @dataclass
 class EquippedItemsEquipIndex:
     """Equipment slot indexes (0x58 = 88 bytes)"""
+
     left_hand_armament1: int = 0
     right_hand_armament1: int = 0
     left_hand_armament2: int = 0
@@ -41,7 +42,7 @@ class EquippedItemsEquipIndex:
     talisman3: int = 0
     talisman4: int = 0
     unk0x54: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedItemsEquipIndex:
         """Read EquippedItemsEquipIndex from stream (88 bytes)"""
@@ -69,7 +70,7 @@ class EquippedItemsEquipIndex:
             talisman4=struct.unpack("<I", f.read(4))[0],
             unk0x54=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write EquippedItemsEquipIndex to stream (88 bytes)"""
         f.write(struct.pack("<I", self.left_hand_armament1))
@@ -99,6 +100,7 @@ class EquippedItemsEquipIndex:
 @dataclass
 class ActiveWeaponSlotsAndArmStyle:
     """Active weapon slots and arm style (0x1C = 28 bytes)"""
+
     arm_style: int = 0
     left_hand_weapon_active_slot: int = 0
     right_hand_weapon_active_slot: int = 0
@@ -106,7 +108,7 @@ class ActiveWeaponSlotsAndArmStyle:
     right_arrow_active_slot: int = 0
     left_bolt_active_slot: int = 0
     right_bolt_active_slot: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> ActiveWeaponSlotsAndArmStyle:
         """Read ActiveWeaponSlotsAndArmStyle from stream (28 bytes)"""
@@ -119,7 +121,7 @@ class ActiveWeaponSlotsAndArmStyle:
             left_bolt_active_slot=struct.unpack("<I", f.read(4))[0],
             right_bolt_active_slot=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write ActiveWeaponSlotsAndArmStyle to stream (28 bytes)"""
         f.write(struct.pack("<I", self.arm_style))
@@ -134,6 +136,7 @@ class ActiveWeaponSlotsAndArmStyle:
 @dataclass
 class EquippedItemsItemIds:
     """Equipment item IDs (0x58 = 88 bytes)"""
+
     left_hand_armament1: int = 0
     right_hand_armament1: int = 0
     left_hand_armament2: int = 0
@@ -156,7 +159,7 @@ class EquippedItemsItemIds:
     talisman3: int = 0
     talisman4: int = 0
     unk0x54: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedItemsItemIds:
         """Read EquippedItemsItemIds from stream (88 bytes)"""
@@ -184,7 +187,7 @@ class EquippedItemsItemIds:
             talisman4=struct.unpack("<I", f.read(4))[0],
             unk0x54=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write EquippedItemsItemIds to stream (88 bytes)"""
         f.write(struct.pack("<I", self.left_hand_armament1))
@@ -214,6 +217,7 @@ class EquippedItemsItemIds:
 @dataclass
 class EquippedItemsGaitemHandles:
     """Equipment gaitem handles (0x58 = 88 bytes)"""
+
     left_hand_armament1: int = 0
     right_hand_armament1: int = 0
     left_hand_armament2: int = 0
@@ -236,7 +240,7 @@ class EquippedItemsGaitemHandles:
     talisman3: int = 0
     talisman4: int = 0
     unk0x54: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedItemsGaitemHandles:
         """Read EquippedItemsGaitemHandles from stream (88 bytes)"""
@@ -264,7 +268,7 @@ class EquippedItemsGaitemHandles:
             talisman4=struct.unpack("<I", f.read(4))[0],
             unk0x54=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write EquippedItemsGaitemHandles to stream (88 bytes)"""
         f.write(struct.pack("<I", self.left_hand_armament1))
@@ -295,13 +299,15 @@ class EquippedItemsGaitemHandles:
 # INVENTORY
 # ============================================================================
 
+
 @dataclass
 class InventoryItem:
     """Single inventory item (12 bytes)"""
+
     gaitem_handle: int = 0
     quantity: int = 0
     acquisition_index: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> InventoryItem:
         """Read InventoryItem from stream (12 bytes)"""
@@ -310,7 +316,7 @@ class InventoryItem:
             quantity=struct.unpack("<I", f.read(4))[0],
             acquisition_index=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write InventoryItem to stream (12 bytes)"""
         f.write(struct.pack("<I", self.gaitem_handle))
@@ -322,59 +328,60 @@ class InventoryItem:
 class Inventory:
     """
     Inventory structure (variable size based on capacities)
-    
-    CRITICAL: Capacities differ between held and storage!
+
+    Capacities differ between held and storage
     - Held: common_capacity=0xa80 (2688), key_capacity=0x180 (384)
     - Storage: common_capacity=0x780 (1920), key_capacity=0x80 (128)
     """
+
     common_item_count: int = 0
-    common_items: List[InventoryItem] = field(default_factory=list)
+    common_items: list[InventoryItem] = field(default_factory=list)
     key_item_count: int = 0
-    key_items: List[InventoryItem] = field(default_factory=list)
+    key_items: list[InventoryItem] = field(default_factory=list)
     equip_index_counter: int = 0
     acquisition_index_counter: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO, common_capacity: int, key_capacity: int) -> Inventory:
         """
         Read Inventory from stream with specified capacities.
-        
+
         Args:
             f: BytesIO stream
             common_capacity: Max common items (0xa80 for held, 0x780 for storage)
             key_capacity: Max key items (0x180 for held, 0x80 for storage)
-            
+
         Returns:
             Inventory instance
         """
         obj = cls()
-        
+
         # Read common items
         obj.common_item_count = struct.unpack("<I", f.read(4))[0]
         obj.common_items = [InventoryItem.read(f) for _ in range(common_capacity)]
-        
+
         # Read key items
         obj.key_item_count = struct.unpack("<I", f.read(4))[0]
         obj.key_items = [InventoryItem.read(f) for _ in range(key_capacity)]
-        
+
         # Read counters
         obj.equip_index_counter = struct.unpack("<I", f.read(4))[0]
         obj.acquisition_index_counter = struct.unpack("<I", f.read(4))[0]
-        
+
         return obj
-    
+
     def write(self, f: BytesIO):
         """Write Inventory to stream"""
         # Write common items
         f.write(struct.pack("<I", self.common_item_count))
         for item in self.common_items:
             item.write(f)
-        
+
         # Write key items
         f.write(struct.pack("<I", self.key_item_count))
         for item in self.key_items:
             item.write(f)
-        
+
         # Write counters
         f.write(struct.pack("<I", self.equip_index_counter))
         f.write(struct.pack("<I", self.acquisition_index_counter))
@@ -384,12 +391,14 @@ class Inventory:
 # SPELLS
 # ============================================================================
 
+
 @dataclass
 class Spell:
     """Single spell slot (8 bytes)"""
+
     spell_id: int = 0
     unk0x4: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> Spell:
         """Read Spell from stream (8 bytes)"""
@@ -397,7 +406,7 @@ class Spell:
             spell_id=struct.unpack("<I", f.read(4))[0],
             unk0x4=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write Spell to stream (8 bytes)"""
         f.write(struct.pack("<I", self.spell_id))
@@ -406,10 +415,11 @@ class Spell:
 
 @dataclass
 class EquippedSpells:
-    """Equipped spells (0x74 = 116 bytes: 14 spells Ã— 8 bytes + 4 bytes active index)"""
-    spell_slots: List[Spell] = field(default_factory=list)
+    """Equipped spells (0x74 = 116 bytes: 14 spells — 8 bytes + 4 bytes active index)"""
+
+    spell_slots: list[Spell] = field(default_factory=list)
     active_index: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedSpells:
         """Read EquippedSpells from stream (116 bytes)"""
@@ -417,7 +427,7 @@ class EquippedSpells:
         obj.spell_slots = [Spell.read(f) for _ in range(14)]
         obj.active_index = struct.unpack("<I", f.read(4))[0]
         return obj
-    
+
     def write(self, f: BytesIO):
         """Write EquippedSpells to stream (116 bytes)"""
         for spell in self.spell_slots:
@@ -429,12 +439,14 @@ class EquippedSpells:
 # EQUIPPED ITEMS (QUICK ITEMS AND POUCH)
 # ============================================================================
 
+
 @dataclass
 class EquippedItem:
     """Single equipped item (8 bytes)"""
+
     gaitem_handle: int = 0
     equip_index: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedItem:
         """Read EquippedItem from stream (8 bytes)"""
@@ -442,7 +454,7 @@ class EquippedItem:
             gaitem_handle=struct.unpack("<I", f.read(4))[0],
             equip_index=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write EquippedItem to stream (8 bytes)"""
         f.write(struct.pack("<I", self.gaitem_handle))
@@ -452,12 +464,13 @@ class EquippedItem:
 @dataclass
 class EquippedItems:
     """Equipped items (0x8C = 140 bytes: 10 quick + 6 pouch + 2 fields)"""
-    quick_items: List[EquippedItem] = field(default_factory=list)
+
+    quick_items: list[EquippedItem] = field(default_factory=list)
     active_quick_item_index: int = 0
-    pouch_items: List[EquippedItem] = field(default_factory=list)
+    pouch_items: list[EquippedItem] = field(default_factory=list)
     unk0x84: int = 0
     unk0x88: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedItems:
         """Read EquippedItems from stream (140 bytes)"""
@@ -468,7 +481,7 @@ class EquippedItems:
         obj.unk0x84 = struct.unpack("<I", f.read(4))[0]
         obj.unk0x88 = struct.unpack("<I", f.read(4))[0]
         return obj
-    
+
     def write(self, f: BytesIO):
         """Write EquippedItems to stream (140 bytes)"""
         for item in self.quick_items:
@@ -484,18 +497,20 @@ class EquippedItems:
 # GESTURES, PROJECTILES, PHYSICS
 # ============================================================================
 
+
 @dataclass
 class EquippedGestures:
-    """Equipped gestures (0x18 = 24 bytes: 6 gestures Ã— 4 bytes)"""
-    gesture_ids: List[int] = field(default_factory=list)
-    
+    """Equipped gestures (0x18 = 24 bytes: 6 gestures — 4 bytes)"""
+
+    gesture_ids: list[int] = field(default_factory=list)
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedGestures:
         """Read EquippedGestures from stream (24 bytes)"""
         obj = cls()
         obj.gesture_ids = [struct.unpack("<I", f.read(4))[0] for _ in range(6)]
         return obj
-    
+
     def write(self, f: BytesIO):
         """Write EquippedGestures to stream (24 bytes)"""
         for gesture_id in self.gesture_ids:
@@ -505,9 +520,10 @@ class EquippedGestures:
 @dataclass
 class Projectile:
     """Single projectile entry (8 bytes)"""
+
     id: int = 0
     unk0x4: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> Projectile:
         """Read Projectile from stream (8 bytes)"""
@@ -515,7 +531,7 @@ class Projectile:
             id=struct.unpack("<I", f.read(4))[0],
             unk0x4=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write Projectile to stream (8 bytes)"""
         f.write(struct.pack("<I", self.id))
@@ -526,24 +542,26 @@ class Projectile:
 class AcquiredProjectiles:
     """
     Acquired projectiles (VARIABLE size based on count)
-    Structure: 4 bytes count + (count × 8 bytes projectiles)
+    Structure: 4 bytes count + (count x 8 bytes projectiles)
     """
+
     count: int = 0
-    projectiles: List[Projectile] = field(default_factory=list)
-    
+    projectiles: list[Projectile] = field(default_factory=list)
+
     @classmethod
     def read(cls, f: BytesIO) -> AcquiredProjectiles:
         """Read AcquiredProjectiles from stream (variable size based on count)"""
         obj = cls()
         obj.count = struct.unpack("<I", f.read(4))[0]
-        
+
         # Read exactly count projectiles (each is 8 bytes)
         obj.projectiles = [Projectile.read(f) for _ in range(obj.count)]
-        
+
         return obj
-    
+
     def write(self, f: BytesIO):
         """Write AcquiredProjectiles to stream"""
+        start_pos = f.tell()
         f.write(struct.pack("<I", self.count))
         for proj in self.projectiles:
             proj.write(f)
@@ -551,12 +569,13 @@ class AcquiredProjectiles:
         bytes_written = f.tell() - start_pos
         remaining = 0x7CC - bytes_written
         if remaining > 0:
-            f.write(b'\x00' * remaining)
+            f.write(b"\x00" * remaining)
 
 
 @dataclass
 class EquippedArmamentsAndItems:
-    """Complete equipped state (0x9C = 156 bytes: 39 items Ã— 4 bytes)"""
+    """Complete equipped state (0x9C = 156 bytes: 39 items — 4 bytes)"""
+
     left_hand_armament1: int = 0
     right_hand_armament1: int = 0
     left_hand_armament2: int = 0
@@ -596,7 +615,7 @@ class EquippedArmamentsAndItems:
     pouch5: int = 0
     pouch6: int = 0
     unk0x98: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedArmamentsAndItems:
         """Read EquippedArmamentsAndItems from stream (156 bytes)"""
@@ -641,7 +660,7 @@ class EquippedArmamentsAndItems:
             pouch6=struct.unpack("<I", f.read(4))[0],
             unk0x98=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write EquippedArmamentsAndItems to stream (156 bytes)"""
         f.write(struct.pack("<I", self.left_hand_armament1))
@@ -688,10 +707,11 @@ class EquippedArmamentsAndItems:
 @dataclass
 class EquippedPhysics:
     """Wondrous Physick tears (0xC = 12 bytes)"""
+
     slot1: int = 0
     slot2: int = 0
     unk0x8: int = 0
-    
+
     @classmethod
     def read(cls, f: BytesIO) -> EquippedPhysics:
         """Read EquippedPhysics from stream (12 bytes)"""
@@ -700,7 +720,7 @@ class EquippedPhysics:
             slot2=struct.unpack("<I", f.read(4))[0],
             unk0x8=struct.unpack("<I", f.read(4))[0],
         )
-    
+
     def write(self, f: BytesIO):
         """Write EquippedPhysics to stream (12 bytes)"""
         f.write(struct.pack("<I", self.slot1))
@@ -712,14 +732,16 @@ class EquippedPhysics:
 # TROPHY EQUIP DATA
 # ============================================================================
 
+
 @dataclass
 class TrophyEquipData:
     """Trophy equipment data (0x34 = 52 bytes)"""
+
     unk0x0: int = 0
-    unk0x4: bytes = field(default_factory=lambda: b'\x00' * 0x10)
-    unk0x14: bytes = field(default_factory=lambda: b'\x00' * 0x10)
-    unk0x24: bytes = field(default_factory=lambda: b'\x00' * 0x10)
-    
+    unk0x4: bytes = field(default_factory=lambda: b"\x00" * 0x10)
+    unk0x14: bytes = field(default_factory=lambda: b"\x00" * 0x10)
+    unk0x24: bytes = field(default_factory=lambda: b"\x00" * 0x10)
+
     @classmethod
     def read(cls, f: BytesIO) -> TrophyEquipData:
         """Read TrophyEquipData from stream (52 bytes)"""
@@ -729,7 +751,7 @@ class TrophyEquipData:
             unk0x14=f.read(0x10),
             unk0x24=f.read(0x10),
         )
-    
+
     def write(self, f: BytesIO):
         """Write TrophyEquipData to stream (52 bytes)"""
         f.write(struct.pack("<I", self.unk0x0))
