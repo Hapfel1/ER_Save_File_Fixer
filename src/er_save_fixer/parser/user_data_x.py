@@ -78,7 +78,7 @@ class UserDataX:
     # Player data (0x1B0 = 432 bytes)
     player_game_data: PlayerGameData = field(default_factory=PlayerGameData)
 
-    # SP Effects (13 entries ÃƒÆ’Ã¢â‚¬â€ 16 bytes = 208 bytes, but actually reads different)
+    # SP Effects (13 entries ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 16 bytes = 208 bytes, but actually reads different)
     sp_effects: list[SPEffect] = field(default_factory=list)
 
     # Equipment structures
@@ -362,6 +362,7 @@ class UserDataX:
             0
         ]
 
+        obj.event_flags_offset = f.tell()
         obj.event_flags = f.read(0x1BF99F)
         obj.event_flags_terminator = struct.unpack("<B", f.read(1))[0]
         # There are 16 more bytes after the terminator
@@ -558,6 +559,17 @@ class UserDataX:
         # Check SteamId corruption
         if self.has_steamid_corruption():
             issues.append(f"steamid_corruption:SteamId = {self.steam_id}")
+
+        # Check event flag corruption (Ranni quest and warp sickness)
+        if hasattr(self, "event_flags") and self.event_flags:
+            try:
+                from .event_flags import CorruptionDetector
+
+                event_issues = CorruptionDetector.detect_all(self.event_flags)
+                for issue in event_issues:
+                    issues.append(f"eventflag:{issue}")
+            except Exception:
+                pass
 
         has_corruption = len(issues) > 0
         return (has_corruption, issues)

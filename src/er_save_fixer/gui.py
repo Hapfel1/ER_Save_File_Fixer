@@ -416,6 +416,18 @@ class SaveFileFixer:
                     issues_detected.append(f"Corruption: Time - {details}")
                 elif base_type == "steamid":
                     issues_detected.append(f"Corruption: SteamId - {details}")
+                elif base_type == "eventflag":
+                    # Map event flag issue names to user-friendly descriptions
+                    friendly_names = {
+                        "ranni_softlock": "Ranni's Tower Quest",
+                        "radahn_alive_warp": "Radahn Warp (Alive)",
+                        "radahn_dead_warp": "Radahn Warp (Dead)",
+                        "morgott_warp": "Morgott Warp",
+                        "radagon_warp": "Radagon Warp",
+                        "sealing_tree_warp": "Sealing Tree Warp (DLC)",
+                    }
+                    friendly = friendly_names.get(details, details)
+                    issues_detected.append(f"Quest/Warp: {friendly}")
                 else:
                     issues_detected.append(f"Corruption: {issue}")
 
