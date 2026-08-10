@@ -1,3 +1,6 @@
+# Note
+This tool is outdated and won't receive any more updates as it has been implemented and improved in the [Elden Ring Save File Manager](https://github.com/Hapfel1/er-save-manager/releases). Please use it instead: https://github.com/Hapfel1/er-save-manager/releases
+
 # Elden Ring Save File Fixer
 Fixes infinite loading screens, corrupted save files and event flag related bugs in Elden Ring.
 
